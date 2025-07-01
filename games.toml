@@ -1,0 +1,9 @@
+[[games]]
+name = "Blaspehmous 2"
+path = "~/Games/SteamLibrary/steamapps/compatdata/2114740/pfx/[...]"
+comment = "Game has three save slots."
+
+[[games]]
+name = "Shadow Tactics"
+path = "~/Games/Shadow Tactics/[...]"
+comment = "Installed via Bottles"

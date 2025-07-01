@@ -1,5 +1,8 @@
+[settings]
+backup_folder = "/home/moritz/Backups/Saves/"
+
 [[games]]
-name = "Blaspehmous 2"
+name = "Blasphemous 2"
 path = "/home/moritz/Games/SteamLibrary/steamapps/compatdata/2114740/pfx/drive_c/users/steamuser/AppData/LocalLow/The Game Kitchen/Blasphemous 2/SteamUser_76561198017647090/Savegames/"
 # comment = 
 

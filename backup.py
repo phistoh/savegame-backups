@@ -106,7 +106,7 @@ DeletionDate={datetime.now().isoformat()}
 
 if __name__ == "__main__":
     # setup global variables
-    cwd = Path(os.getcwd())
+    cwd = Path(__file__).resolve().parent
     with open(cwd / "games.toml", "rb") as toml:
         toml_as_dict = tomllib.load(toml)
         games = sorted(toml_as_dict.get("games", []), key=lambda d: d["name"])

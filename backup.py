@@ -5,12 +5,11 @@ import logging
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tarfile
+import textwrap
 import tomllib
 from datetime import datetime
-from os import path
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -27,34 +26,34 @@ def hash_from_file(filename):
 
 
 def make_filesystem_suitable(s):
-    suitable_string = ""
-    for char in s:
-        char = char.lower()
-        if char.isalnum():
-            suitable_string += char
-        elif char.isspace():
-            suitable_string += "-"
-        elif char == "&":
-            suitable_string += "-and-"
-    if suitable_string == "":
-        suitable_string = "_"
-
-    return re.sub(r"(\-)\1+", r"\1", suitable_string)
+    substitutions = {" ": "-", "&": "-and-"}
+    s = s.lower()
+    suitable = "".join(
+        substitutions.get(c, c) if c.isalnum() or c in substitutions else "" for c in s
+    )
+    if not suitable:
+        return "_"
+    return re.sub(r"-{2,}", "-", suitable)
 
 
 def get_newest_file_in_folder(path, inverse=False):
     # convert str to Path object
     if isinstance(path, str):
         path = Path(path)
-    files = os.listdir(path)
-    # append paths to basenames
-    paths = [os.path.join(path, basename) for basename in files]
+    paths = [p for p in path.iterdir() if p.is_file()]
     if paths and inverse:
         return min(paths, key=os.path.getctime)
     elif paths:
         return max(paths, key=os.path.getctime)
     else:
         return None
+
+
+def get_files_sorted_by_ctime(directory):
+    return sorted(
+        [p for p in Path(directory).iterdir() if p.is_file()],
+        key=lambda f: f.stat().st_ctime,
+    )
 
 
 def count_files(path):
@@ -93,10 +92,14 @@ def move_to_trash(file_path):
 
     shutil.move(str(file_path), str(dest))
 
-    info_content = f"""[Trash Info]
-Path={file_path}
-DeletionDate={datetime.now().isoformat()}
-"""
+    info_content = textwrap.dedent(
+        f"""\
+        [Trash Info]
+        Path={file_path}
+        DeletionDate={datetime.now().isoformat()}
+    """
+    )
+
     info_file = info_dir / (dest.name + ".trashinfo")
     with open(info_file, "w") as f:
         f.write(info_content)
@@ -124,10 +127,10 @@ if __name__ == "__main__":
 
     for game in games:
         # setup loop-specific variables
-        name = game.get("name", None)
+        name = game.get("name")
         suitable_name = make_filesystem_suitable(name)
-        path = game.get("path", None)
-        comment = game.get("comment", None)
+        path = game.get("path")
+        comment = game.get("comment")
         if not (name and path):
             continue
         path = Path(path)
@@ -137,25 +140,25 @@ if __name__ == "__main__":
 
         current_hash = hash_from_file(archive)
 
-        if not os.path.exists(backup_folder / suitable_name):
-            os.makedirs(backup_folder / suitable_name)
-        last_file = get_newest_file_in_folder(backup_folder / suitable_name)
+        (backup_folder / suitable_name).mkdir(parents=True, exist_ok=True)
+
+        files = get_files_sorted_by_ctime(backup_folder / suitable_name)
+        last_file = files[-1] if files else None
+
         if last_file:
             last_hash = hash_from_file(last_file)
 
         if not last_file or current_hash != last_hash:
-            shutil.move(
-                archive,
-                f"{backup_folder / suitable_name}/{date}-{suitable_name}-{timestamp}.tar.bz2",
+            dest_path = (
+                backup_folder
+                / suitable_name
+                / f"{date}-{suitable_name}-{timestamp}.tar.bz2"
             )
-            logger.info(
-                "Moved archive to '%s'",
-                f"{backup_folder / suitable_name}/{date}-{suitable_name}-{timestamp}.tar.bz2",
-            )
-            if count_files(backup_folder / suitable_name) > 1:
-                oldest_file = get_newest_file_in_folder(
-                    backup_folder / suitable_name, True
-                )
+            shutil.move(archive, dest_path)
+            logger.info("Moved archive to '%s'", dest_path)
+
+            if len(files) > 10:
+                oldest_file = files[0]
                 logger.info(
                     "More than 10 files found. Deleting oldest one: %s", oldest_file
                 )

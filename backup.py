@@ -26,7 +26,11 @@ def hash_from_file(filename):
 
 
 def make_filesystem_suitable(s):
-    substitutions = {" ": "-", "&": "-and-"}
+    substitutions = {
+        " ": "-",
+        "&": "-and-",
+        "~": "-",
+    }
     s = s.lower()
     suitable = "".join(
         substitutions.get(c, c) if c.isalnum() or c in substitutions else "" for c in s

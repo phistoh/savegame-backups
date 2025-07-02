@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+
 import hashlib
 import logging
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
 import tomllib
@@ -11,6 +14,11 @@ from os import path
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)s]\t%(asctime)s %(message)s",
+    datefmt="%H:%M",
+)
 
 
 def hash_from_file(filename):
@@ -61,20 +69,50 @@ def generate_archive(source, target):
     if not os.path.exists(os.path.dirname(target)):
         os.makedirs(os.path.dirname(target))
 
-    with tarfile.open(target, "w:gz") as tar:
+    # use bzip2 for consistent hashes
+    with tarfile.open(target, "w:bz2") as tar:
         tar.add(source, arcname=os.path.basename(source))
         logger.info("Created %s.", target)
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+def move_to_trash(file_path):
+    trash_dir = Path.home() / ".local/share/Trash"
+    files_dir = trash_dir / "files"
+    info_dir = trash_dir / "info"
+    files_dir.mkdir(parents=True, exist_ok=True)
+    info_dir.mkdir(parents=True, exist_ok=True)
 
+    file_path = Path(file_path).resolve()
+    dest = files_dir / file_path.name
+
+    # Avoid overwriting files in Trash
+    counter = 1
+    while dest.exists():
+        dest = files_dir / f"{file_path.stem} ({counter}){file_path.suffix}"
+        counter += 1
+
+    shutil.move(str(file_path), str(dest))
+
+    info_content = f"""[Trash Info]
+Path={file_path}
+DeletionDate={datetime.now().isoformat()}
+"""
+    info_file = info_dir / (dest.name + ".trashinfo")
+    with open(info_file, "w") as f:
+        f.write(info_content)
+
+    logger.info("Moved %s to trash.", file_path)
+
+
+if __name__ == "__main__":
     # setup global variables
     cwd = Path(os.getcwd())
     with open(cwd / "games.toml", "rb") as toml:
         toml_as_dict = tomllib.load(toml)
-        games = toml_as_dict.get("games", [])
-        backup_folder = Path(toml_as_dict.get("settings", {}).get("backup_folder", None))
+        games = sorted(toml_as_dict.get("games", []), key=lambda d: d["name"])
+        backup_folder = Path(
+            toml_as_dict.get("settings", {}).get("backup_folder", None)
+        )
     now = datetime.now()
     date = str(now.date())
     timestamp = int(now.timestamp())
@@ -94,28 +132,43 @@ if __name__ == "__main__":
             continue
         path = Path(path)
 
-        archive = cwd / f"tmp/{suitable_name}.tar.gz"
+        archive = cwd / f"tmp/{suitable_name}.tar.bz2"
         generate_archive(path, archive)
 
-        # TODO: Fix hashing to ignore timestamps
         current_hash = hash_from_file(archive)
+
         if not os.path.exists(backup_folder / suitable_name):
             os.makedirs(backup_folder / suitable_name)
         last_file = get_newest_file_in_folder(backup_folder / suitable_name)
         if last_file:
             last_hash = hash_from_file(last_file)
+
         if not last_file or current_hash != last_hash:
-            # TODO: add timestamp/number to archive
-            shutil.move(archive, f"{backup_folder / suitable_name}/{date}-{suitable_name}-{timestamp}.tar.gz")
-            if count_files(backup_folder / suitable_name) > 10:
-                oldest_file = get_newest_file_in_folder(backup_folder / suitable_name, True)
-                logger.info("More than 10 files found. Deleting oldest one: %s", oldest_file)
-                logger.debug(f"TODO: rm {oldest_file}")
+            shutil.move(
+                archive,
+                f"{backup_folder / suitable_name}/{date}-{suitable_name}-{timestamp}.tar.bz2",
+            )
+            logger.info(
+                "Moved archive to '%s'",
+                f"{backup_folder / suitable_name}/{date}-{suitable_name}-{timestamp}.tar.bz2",
+            )
+            if count_files(backup_folder / suitable_name) > 1:
+                oldest_file = get_newest_file_in_folder(
+                    backup_folder / suitable_name, True
+                )
+                logger.info(
+                    "More than 10 files found. Deleting oldest one: %s", oldest_file
+                )
+                move_to_trash(oldest_file)
+
         readme += f"\n## {name}\n\n- *Path*: `{path}`"
         if comment:
             readme += f"\n- *Comment*: {comment}"
         readme += f"\n- *Last update*: {now.strftime("%Y-%m-%d, %H:%M")}\n"
 
     readme += f"\n(Last run: {now.strftime("%Y-%m-%d, %H:%M")})\n"
-    logger.debug(f"TODO: save readme as {backup_folder / 'SAVEGAMES.md'}")
-    logger.debug(readme)
+    with open(backup_folder / "SAVEGAMES.md", "w") as readme_file:
+        readme_file.write(readme)
+
+    logger.debug("==========\n%s\n==========\n", readme)
+    logger.info("Backup finished on %s", now.strftime("%Y-%m-%d, %H:%M"))

@@ -179,3 +179,5 @@ if __name__ == "__main__":
 
     logger.debug("==========\n%s\n==========\n", readme)
     logger.info("Backup finished on %s", now.strftime("%Y-%m-%d, %H:%M"))
+
+    sys.exit(0)

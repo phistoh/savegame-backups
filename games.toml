@@ -10,3 +10,8 @@ path = "/home/moritz/Games/SteamLibrary/steamapps/compatdata/2114740/pfx/drive_c
 name = "Shadow Gambit: The Cursed Crew"
 path = "/home/moritz/.var/app/com.usebottles.bottles/data/bottles/bottles/GOG-Galaxy/drive_c/users/moritz/AppData/Local/ShadowGambit_TCC/user_gog/"
 comment = "Installed via Bottles"
+
+[[games]]
+name = "Hollow Knight"
+path = "/home/moritz/.config/unity3d/Team Cherry/Hollow Knight/"
+# comment =

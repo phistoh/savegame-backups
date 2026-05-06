@@ -15,3 +15,8 @@ comment = "Installed via Bottles"
 name = "Hollow Knight"
 path = "/home/moritz/.config/unity3d/Team Cherry/Hollow Knight/"
 # comment =
+
+[[games]]
+name = "MOUSE - P.I. For Hire"
+path = "/home/moritz/Games/SteamLibrary/steamapps/compatdata/2416450/pfx/drive_c/users/steamuser/AppData/LocalLow/Fumi Games/MOUSE/"
+# comment =
